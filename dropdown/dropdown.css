@@ -1,13 +1,75 @@
-.dropdown {
+[data-group=grp-3].bg-grp {
+  background-color: #d47b7b;
+}
+[data-group=grp-3].border-grp {
+  border-color: #d47b7b;
+}
+[data-group=grp-3].txt-grp {
+  color: #d47b7b;
+}
+[data-group=grp-3] .bg-grp {
+  background-color: #d47b7b;
+}
+[data-group=grp-3] .border-grp {
+  border-color: #d47b7b;
+}
+[data-group=grp-3] .txt-grp {
+  color: #d47b7b;
+}
+
+[data-group=grp-4].bg-grp {
+  background-color: #758cd8;
+}
+[data-group=grp-4].border-grp {
+  border-color: #758cd8;
+}
+[data-group=grp-4].txt-grp {
+  color: #758cd8;
+}
+[data-group=grp-4] .bg-grp {
+  background-color: #758cd8;
+}
+[data-group=grp-4] .border-grp {
+  border-color: #758cd8;
+}
+[data-group=grp-4] .txt-grp {
+  color: #758cd8;
+}
+
+[data-group=grp-5].bg-grp {
+  background-color: #80ae77;
+}
+[data-group=grp-5].border-grp {
+  border-color: #80ae77;
+}
+[data-group=grp-5].txt-grp {
+  color: #80ae77;
+}
+[data-group=grp-5] .bg-grp {
+  background-color: #80ae77;
+}
+[data-group=grp-5] .border-grp {
+  border-color: #80ae77;
+}
+[data-group=grp-5] .txt-grp {
+  color: #80ae77;
+}
+
+:root {
   --dropdown-bg: var(--color-white, #fff);
   --dropdown-bg-hover: var(--color-bg-secondary, #f5f5f5);
   --dropdown-bg-selected: var(--color-bg-blue, #edf3ff);
+  --dropdown-color-badge: #8fbfd1;
   --dropdown-color: var(--color-text, #222);
   --dropdown-color-muted: var(--color-text-muted, #888);
   --dropdown-border: var(--color-border, #ddd);
   --dropdown-radius: 8px;
-  --dropdown-height: 40px;
+  --dropdown-height: 30px;
+  --input-height: 52px;
   --dropdown-padding: 10px 12px;
+}
+
+.dropdown {
   position: relative;
   width: 100%;
   min-width: 0;
@@ -22,7 +84,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  width: 100%;
   min-height: var(--dropdown-height);
   padding: var(--dropdown-padding);
   background: var(--dropdown-bg);
@@ -32,7 +93,7 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .dropdown__trigger:hover {
   background: var(--dropdown-bg-hover);
@@ -42,20 +103,23 @@
   border-color: var(--dropdown-color);
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08);
 }
-.dropdown__trigger:disabled {
+.dropdown__trigger[aria-disabled=true] {
   opacity: 0.5;
   cursor: not-allowed;
+  pointer-events: none;
 }
 .dropdown__value {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   flex: 1;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
   overflow: hidden;
 }
 .dropdown__value--placeholder {
   color: var(--dropdown-color-muted);
+  font-size: 12px;
 }
 .dropdown__arrow {
   flex-shrink: 0;
@@ -91,28 +155,6 @@
 }
 .dropdown__menu[hidden] {
   display: none;
-}
-.dropdown__search-wrapper {
-  flex-shrink: 0;
-}
-.dropdown__search {
-  width: 100%;
-  min-height: 34px;
-  padding: 7px 10px;
-  background: var(--dropdown-bg-hover);
-  border: 1px solid transparent;
-  border-radius: calc(var(--dropdown-radius) - 3px);
-  color: inherit;
-  font: inherit;
-  font-size: 0.9em;
-  outline: none;
-  transition: border-color 0.2s ease;
-}
-.dropdown__search::placeholder {
-  color: var(--dropdown-color-muted);
-}
-.dropdown__search:focus {
-  border-color: var(--dropdown-border);
 }
 .dropdown__options {
   display: flex;
@@ -196,23 +238,13 @@
 .dropdown__empty[hidden] {
   display: none;
 }
-.dropdown__value {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-.dropdown__value--placeholder {
-  color: var(--text-secondary);
-}
 .dropdown__badge {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   padding: 3px 8px;
+  background: var(--dropdown-color-badge);
   border-radius: 4px;
-  background: var(--bg-bleu);
   color: white;
   font-size: 11px;
   white-space: nowrap;
@@ -224,8 +256,8 @@
   display: grid;
   place-items: center;
   padding: 0;
-  border: 0;
   background: transparent;
+  border: 0;
   color: inherit;
   font: inherit;
   font-size: 15px;
@@ -234,4 +266,17 @@
 }
 .dropdown__badge-remove:hover {
   opacity: 0.7;
+}
+
+.filter__input {
+  display: block;
+  width: 100%;
+  min-height: var(--input-height);
+  padding: var(--dropdown-padding);
+  background: var(--dropdown-bg);
+  border: 1px solid var(--dropdown-border);
+  border-radius: var(--dropdown-radius);
+  color: var(--color-text, #222);
+  font: inherit;
+  font-size: 0.9em;
 }
