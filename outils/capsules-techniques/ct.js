@@ -62,7 +62,7 @@ function normalize(value) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .trim();
+    .replace(/[^a-z0-9]/g, "");
 }
 
 // = Identifiants Pokédex
@@ -99,6 +99,14 @@ function getInventoryNames() {
   const items = currentMember?.inventaire?.items ?? {};
 
   return new Set(Object.keys(items).map(normalize));
+}
+
+// = Vérification des capacités déjà apprises
+
+function hasLearnedCT(pokemon, ct) {
+  const learnedMoves = pokemon.ct ?? [];
+
+  return learnedMoves.some((move) => normalize(move) === normalize(ct.nom));
 }
 
 // ==========================================================
@@ -152,6 +160,10 @@ async function initCT() {
 
   await Promise.all([initTypeFilter(), initInventoryFilter(), loadCT(), loadCurrentMember(), loadPokemon()]);
 
+  // = Calcul des compatibilités
+
+  buildCompatibilityCache();
+
   // = Initialisation du filtre équipe après chargement des données
 
   await initTeamFilter();
@@ -168,8 +180,6 @@ function initTeamButton() {
 
   if (!button) return;
 
-  button.disabled = true;
-
   button.addEventListener("click", () => {
     // = Vérification des données
 
@@ -183,11 +193,9 @@ function initTeamButton() {
 
     // = Activation / désactivation
 
-    teamCTLoaded = !teamCTLoaded;
+    setTeamButtonState(!teamCTLoaded);
 
-    button.textContent = teamCTLoaded ? "Masquer les Pokémon compatibles" : "Charger les CT apprenables par mon équipe";
-
-    button.classList.toggle("active", teamCTLoaded);
+    // = Affichage
 
     renderCT();
   });
@@ -203,6 +211,18 @@ function updateTeamButton() {
   if (!button) return;
 
   button.disabled = !(ctLoaded && pokemonLoaded && memberLoaded);
+}
+
+// = Synchronisation du bouton
+
+function setTeamButtonState(value) {
+  teamCTLoaded = value;
+
+  const button = document.querySelector(CT.teamButton);
+
+  if (button) {
+    button.setAttribute("aria-pressed", String(teamCTLoaded));
+  }
 }
 
 // ==========================================================
@@ -272,6 +292,7 @@ async function initTypeFilter() {
 
     type: "filter",
     mode: "multiple",
+    search: true,
 
     placeholder: "Tous les types",
     searchPlaceholder: "Rechercher un type...",
@@ -302,9 +323,9 @@ async function initInventoryFilter() {
 
     type: "filter",
     mode: "single",
+    search: false,
 
-    placeholder: "Toutes les CT",
-
+    placeholder: "Rechercher une CT",
     valueKey: "id",
     labelKey: "nom",
 
@@ -314,8 +335,6 @@ async function initInventoryFilter() {
       { id: "false", nom: "Non possédées" },
     ],
 
-    defaultValue: "all",
-
     onChange(value) {
       selectedInventory = value;
       renderCT();
@@ -324,25 +343,34 @@ async function initInventoryFilter() {
 }
 
 // ==========================================================
-// > FILTRE PAR ÉQUIPE
+// > FILTRE PAR ÉQUIPE ET BOÎTE PC
 // ==========================================================
 
 async function initTeamFilter() {
   const team = getTeamPokemon();
+  const box = getBoxPokemon();
 
   await Dropdown.create({
     container: CT.teamFilter,
 
     type: "filter",
     mode: "single",
+    search: false,
 
-    placeholder: "Toute l'équipe",
+    placeholder: "Rechercher un Pokémon...",
 
     valueKey: "id",
     labelKey: "nom",
 
     options: [
-      { id: "all", nom: "Toute l'équipe" },
+      // = Options générales
+
+      { id: "all", nom: "Réinitialiser" },
+      { id: "team", nom: "Toute l'équipe" },
+      { id: "box", nom: "Toute la boîte PC" },
+      { id: "teambox", nom: "Toute l'équipe + boîte PC" },
+
+      // = Pokémon de l'équipe
 
       ...team.map((pokemon) => {
         const species = getSpecies(pokemon);
@@ -352,18 +380,33 @@ async function initTeamFilter() {
           nom: `${pokemon.n || "Sans surnom"} (${species?.nom ?? "Espèce inconnue"})`,
         };
       }),
-    ],
 
-    defaultValue: selectedTeamPokemon,
+      // = Pokémon de la boîte PC
+
+      ...box.map((pokemon) => {
+        const species = getSpecies(pokemon);
+
+        return {
+          id: pokemon.u,
+          nom: `${pokemon.n || "Sans surnom"} (${species?.nom ?? "Espèce inconnue"})`,
+        };
+      }),
+    ],
 
     onChange(value) {
       selectedTeamPokemon = value;
 
-      // = Calcul des compatibilités si nécessaire
+      // = Calcul des compatibilités
 
-      if (value !== "all" && !compatibilityCacheBuilt) {
+      if (!compatibilityCacheBuilt) {
         buildCompatibilityCache();
       }
+
+      // = Activation automatique du bouton
+
+      setTeamButtonState(value !== "all");
+
+      // = Affichage
 
       renderCT();
     },
@@ -408,13 +451,21 @@ async function loadCT() {
 // ==========================================================
 
 function buildCompatibilityCache() {
-  // = Préparation de l'équipe
+  // = Vérification des données
 
-  const team = [...getTeamPokemon(), ...getBoxPokemon()]
+  if (!ctLoaded || !pokemonLoaded || !memberLoaded) return;
+  // = Préparation de l'équipe et de la boîte PC
+
+  const teamPokemon = getTeamPokemon();
+  const teamIds = new Set(teamPokemon.map((pokemon) => String(pokemon.u)));
+
+  const allPokemon = [...teamPokemon, ...getBoxPokemon()];
+
+  const pokemonWithSpecies = allPokemon
     .map((pokemon) => ({
       pokemon,
       species: getSpecies(pokemon),
-      location: getTeamPokemon().some((teamPokemon) => String(teamPokemon.u) === String(pokemon.u)) ? "team" : "boitePC",
+      location: teamIds.has(String(pokemon.u)) ? "team" : "boitePC",
     }))
     .filter(({ species }) => species);
 
@@ -430,7 +481,7 @@ function buildCompatibilityCache() {
         .filter(Boolean),
     );
 
-    const compatiblePokemon = team.filter(({ species }) => compatibleSpecies.has(normalize(species.nom)));
+    const compatiblePokemon = pokemonWithSpecies.filter(({ species }) => compatibleSpecies.has(normalize(species.nom)));
 
     compatibilityCache.set(ct, compatiblePokemon);
   });
@@ -439,6 +490,7 @@ function buildCompatibilityCache() {
 
   console.log(`[CT] Compatibilités calculées : ${compatibilityCache.size} CT`);
 }
+
 // ==========================================================
 // > FILTRAGE
 // ==========================================================
@@ -446,7 +498,7 @@ function buildCompatibilityCache() {
 function getFilteredCT(inventoryNames) {
   // = Compatibilités nécessaires au filtre équipe
 
-  if (selectedTeamPokemon !== "all" && !compatibilityCacheBuilt) {
+  if (ctLoaded && pokemonLoaded && memberLoaded && !compatibilityCacheBuilt) {
     buildCompatibilityCache();
   }
 
@@ -465,20 +517,25 @@ function getFilteredCT(inventoryNames) {
 
     const matchesInventory = selectedInventory === "all" || String(hasCT) === selectedInventory;
 
-    // = Équipe : Pokémon sélectionné
+    // = Équipe et boîte PC
+
+    const compatiblePokemon = compatibilityCache.get(ct) ?? [];
 
     let matchesTeam = true;
 
-    if (selectedTeamPokemon !== "all") {
-      const compatiblePokemon = compatibilityCache.get(ct) ?? [];
-
+    if (selectedTeamPokemon === "team") {
+      matchesTeam = compatiblePokemon.some(({ location }) => location === "team");
+    } else if (selectedTeamPokemon === "box") {
+      matchesTeam = compatiblePokemon.some(({ location }) => location === "boitePC");
+    } else if (selectedTeamPokemon === "teambox") {
+      matchesTeam = compatiblePokemon.length > 0;
+    } else if (selectedTeamPokemon !== "all") {
       matchesTeam = compatiblePokemon.some(({ pokemon }) => String(pokemon.u) === String(selectedTeamPokemon));
     }
 
     return matchesType && matchesSearch && matchesInventory && matchesTeam;
   });
 }
-
 // ==========================================================
 // > INVENTAIRE
 // ==========================================================
@@ -544,10 +601,9 @@ function renderTeam() {
             loading="lazy"
           >
 
-          <span class="equipe-pokemon-name">
-            ${escapeHTML(pokemon.n || "Sans surnom")}
-            <small>(${escapeHTML(species?.nom ?? "Espèce inconnue")})</small>
-          </span>
+          <span class="equipe-pokemon-name">${escapeHTML(pokemon.n || "Sans surnom")}</span>
+          <span class="equipe-pokemon-pkmn">(${escapeHTML(species?.nom ?? "Espèce inconnue")})</span>
+          <span class="equipe-pokemon-rang">rang ${escapeHTML(pokemon.r ?? "")}</span>
 
         </div>
       `;
@@ -564,16 +620,16 @@ function renderBoxPokemon() {
 
   if (!container) return;
 
-  const pokemonList = getBoxPokemon();
+  const box = getBoxPokemon();
 
-  if (!pokemonList.length) {
+  if (!box.length) {
     container.innerHTML = `<p>Aucun Pokémon dans la boîte PC.</p>`;
     return;
   }
 
   // = Affichage
 
-  container.innerHTML = pokemonList
+  container.innerHTML = box
     .map((pokemon) => {
       const species = getSpecies(pokemon);
 
@@ -589,10 +645,9 @@ function renderBoxPokemon() {
             loading="lazy"
           >
 
-          <span class="boite-pc-name">
-            ${escapeHTML(pokemon.n || "Sans surnom")}
-            <small>(${escapeHTML(species?.nom ?? "Espèce inconnue")})</small>
-          </span>
+          <span class="boite-pc-name">${escapeHTML(pokemon.n || "Sans surnom")}</span>
+          <span class="boite-pc-pkmn">(${escapeHTML(species?.nom ?? "Espèce inconnue")})</span>
+          <span class="boite-pc-rang">rang ${escapeHTML(pokemon.r ?? "")}</span>
 
         </div>
       `;
@@ -607,20 +662,9 @@ function renderBoxPokemon() {
 function getUniqueCompatiblePokemon(ct, location) {
   const compatiblePokemon = compatibilityCache.get(ct) ?? [];
 
-  const seenSpecies = new Set();
-
-  return compatiblePokemon
-    .filter(({ location: pokemonLocation }) => pokemonLocation === location)
-    .filter(({ species }) => {
-      const speciesId = normalizeDexId(species.id);
-
-      if (seenSpecies.has(speciesId)) return false;
-
-      seenSpecies.add(speciesId);
-
-      return true;
-    });
+  return compatiblePokemon.filter(({ location: pokemonLocation }) => pokemonLocation === location);
 }
+
 // ==========================================================
 // > AFFICHAGE DES CT
 // ==========================================================
@@ -656,6 +700,7 @@ function renderCT() {
       // > Pokémon compatibles
 
       const teamPokemon = teamCTLoaded ? getUniqueCompatiblePokemon(ct, "team") : [];
+
       const boxPokemon = teamCTLoaded ? getUniqueCompatiblePokemon(ct, "boitePC") : [];
 
       return `
@@ -695,49 +740,73 @@ function renderCT() {
             ${escapeHTML(ct.type)}
           </div>
 
-          <div class="ct-item-name">
-            ${escapeHTML(ct.nom)}
-          </div>
+          <div class="ct-item-name">${escapeHTML(ct.nom)}</div>
 
           <div class="ct-item-description">
             ${escapeHTML(ct.description)}
-          </div>
+          
 
-<div class="ct-item-pokemon">
+          ${
+            teamPokemon.length || boxPokemon.length
+              ? `
+                <div class="ct-item-pokemon">
 
-  <div class="team">
-    ${teamPokemon
-      .map(
-        ({ pokemon, species }) => `
-          <img
-            src="${escapeHTML(species.sprite ?? "")}"
-            alt="${escapeHTML(species.nom)}"
-            title="${escapeHTML(pokemon.n || species.nom)}"
-            loading="lazy"
-            data-pokemon-id="${escapeHTML(pokemon.u)}"
-          >
-        `,
-      )
-      .join("")}
-  </div>
+                  ${
+                    teamPokemon.length
+                      ? `
+                        <div class="ct-item-team">
+                          <div class="ct-item-titre">Équipe Pokémon</div>
+                          <div class="ct-item-content">
+                            ${teamPokemon
+                              .map(
+                                ({ pokemon, species }) => `
+                                  <img
+                                    class="${hasLearnedCT(pokemon, ct) ? "ct-apprise" : ""}"
+                                    src="${escapeHTML(species.sprite ?? "")}"
+                                    alt="${escapeHTML(species.nom)}"
+                                    title="${escapeHTML(pokemon.n || species.nom)}"
+                                    loading="lazy"
+                                    data-pokemon-id="${escapeHTML(pokemon.u)}"
+                                  >
+                                `,
+                              )
+                              .join("")}
+                          </div>
+                        </div>
+                      `
+                      : ""
+                  }
 
-  <div class="boitePC">
-    ${boxPokemon
-      .map(
-        ({ pokemon, species }) => `
-          <img
-            src="${escapeHTML(species.sprite ?? "")}"
-            alt="${escapeHTML(species.nom)}"
-            title="${escapeHTML(pokemon.n || species.nom)}"
-            loading="lazy"
-            data-pokemon-id="${escapeHTML(pokemon.u)}"
-          >
-        `,
-      )
-      .join("")}
-  </div>
+                  ${
+                    boxPokemon.length
+                      ? `
+                        <div class="ct-item-boitePC">
+                          <div class="ct-item-titre">Boîte PC</div>
+                          <div class="ct-item-content">
+                            ${boxPokemon
+                              .map(
+                                ({ pokemon, species }) => `
+                                  <img
+                                    class="${hasLearnedCT(pokemon, ct) ? "ct-apprise" : ""}"
+                                    src="${escapeHTML(species.sprite ?? "")}"
+                                    alt="${escapeHTML(species.nom)}"
+                                    title="${escapeHTML(pokemon.n || species.nom)}"
+                                    loading="lazy"
+                                    data-pokemon-id="${escapeHTML(pokemon.u)}"
+                                  >
+                                `,
+                              )
+                              .join("")}
+                          </div>
+                        </div>
+                      `
+                      : ""
+                  }
 
-</div>
+                </div></div>
+              `
+              : ""
+          }
 
         </article>
       `;
