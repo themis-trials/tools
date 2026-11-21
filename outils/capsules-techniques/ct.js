@@ -1,3 +1,4 @@
+
 import { Dropdown } from "https://themis-trials.github.io/tools/dropdown/dropdown.js";
 import { MemberData } from "https://themis-trials.github.io/tools/outils/shared/members-data.js";
 
@@ -18,7 +19,11 @@ const CT = {
   searchInput: "#ct-search",
   teamButton: "#ct-team-load",
 
-  types: ["Acier", "Combat", "Dragon", "Eau", "Électrik", "Fée", "Feu", "Glace", "Insecte", "Normal", "Plante", "Poison", "Psy", "Roche", "Sol", "Spectre", "Ténèbres", "Vol"],
+  types: [
+    "Acier", "Combat", "Dragon", "Eau", "Électrik", "Fée",
+    "Feu", "Glace", "Insecte", "Normal", "Plante", "Poison",
+    "Psy", "Roche", "Sol", "Spectre", "Ténèbres", "Vol",
+  ],
 };
 
 const POKEMON = {
@@ -32,20 +37,22 @@ let pokemonList = [];
 let speciesById = new Map();
 
 let currentMember = null;
+let currentForumUser = null;
 
 let selectedTypes = [];
 let selectedInventory = "all";
 let selectedTeamPokemon = "all";
-
 let searchQuery = "";
 
 // = ÉTAT DU CHARGEMENT
 
-let ctLoaded = false;
-let pokemonLoaded = false;
-let memberLoaded = false;
+const loaded = {
+  ct: false,
+  pokemon: false,
+  member: false,
+};
 
-// = TEAM : COMPATIBILITÉS
+// = COMPATIBILITÉS
 
 let teamCTLoaded = false;
 let compatibilityCacheBuilt = false;
@@ -65,8 +72,6 @@ function normalize(value) {
     .replace(/[^a-z0-9]/g, "");
 }
 
-// = Identifiants Pokédex
-
 function normalizeDexId(value) {
   return String(value ?? "").replace(/^0+/, "");
 }
@@ -74,17 +79,13 @@ function normalizeDexId(value) {
 // = Protection HTML
 
 function escapeHTML(value) {
-  return String(value ?? "").replace(
-    /[&<>"']/g,
-    (char) =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#039;",
-      })[char],
-  );
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  })[char]);
 }
 
 // = Recherche d'une espèce
@@ -93,20 +94,78 @@ function getSpecies(pokemon) {
   return speciesById.get(normalizeDexId(pokemon?.d)) ?? null;
 }
 
-// = Inventaire normalisé
+// = Inventaire
 
 function getInventoryNames() {
   const items = currentMember?.inventaire?.items ?? {};
-
   return new Set(Object.keys(items).map(normalize));
 }
 
-// = Vérification des capacités déjà apprises
+// = CT apprises
 
 function hasLearnedCT(pokemon, ct) {
-  const learnedMoves = pokemon.ct ?? [];
+  return (pokemon.ct ?? []).some(
+    (move) => normalize(move) === normalize(ct.nom),
+  );
+}
 
-  return learnedMoves.some((move) => normalize(move) === normalize(ct.nom));
+// = Chargement JSON
+
+async function fetchJSON(url) {
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`Erreur HTTP ${response.status} : ${url}`);
+  }
+
+  return response.json();
+}
+
+// ==========================================================
+// > UTILISATEUR FORUMACTIF
+// ==========================================================
+
+// = Récupération des données depuis la page d'accueil
+
+function getHomepageUserData() {
+  return new Promise((resolve, reject) => {
+    const iframe = document.createElement("iframe");
+
+    iframe.src = "https://themistrials.forumactif.com/";
+    iframe.style.display = "none";
+
+    iframe.addEventListener("load", () => {
+      try {
+        const user = iframe.contentWindow._userdata;
+
+        if (!user) {
+          throw new Error("_userdata introuvable sur la page d'accueil.");
+        }
+
+        const data = {
+          session_logged_in: user.session_logged_in,
+          username: user.username,
+          user_id: user.user_id,
+          avatar_link: user.avatar_link,
+          user_nb_privmsg: user.user_nb_privmsg,
+          groupcolor: user.groupcolor,
+        };
+
+        iframe.remove();
+        resolve(data);
+      } catch (error) {
+        iframe.remove();
+        reject(error);
+      }
+    });
+
+    iframe.addEventListener("error", () => {
+      iframe.remove();
+      reject(new Error("Impossible de charger la page d'accueil."));
+    });
+
+    document.body.appendChild(iframe);
+  });
 }
 
 // ==========================================================
@@ -120,7 +179,13 @@ function getTeamPokemon() {
 
   if (!trainerCard?.team || !trainerCard?.pokemon) return [];
 
-  return trainerCard.team.map((id) => trainerCard.pokemon.find((pokemon) => String(pokemon.u) === String(id))).filter(Boolean);
+  return trainerCard.team
+    .map((id) =>
+      trainerCard.pokemon.find(
+        (pokemon) => String(pokemon.u) === String(id),
+      ),
+    )
+    .filter(Boolean);
 }
 
 // = Pokémon dans la boîte PC
@@ -132,7 +197,57 @@ function getBoxPokemon() {
 
   const teamIds = new Set(trainerCard.team.map(String));
 
-  return trainerCard.pokemon.filter((pokemon) => !teamIds.has(String(pokemon.u)));
+  return trainerCard.pokemon.filter(
+    (pokemon) => !teamIds.has(String(pokemon.u)),
+  );
+}
+
+// = Tous les Pokémon avec leur emplacement
+
+function getAllPokemonWithLocation() {
+  const team = getTeamPokemon();
+  const teamIds = new Set(team.map((pokemon) => String(pokemon.u)));
+
+  return [...team, ...getBoxPokemon()]
+    .map((pokemon) => ({
+      pokemon,
+      species: getSpecies(pokemon),
+      location: teamIds.has(String(pokemon.u)) ? "team" : "boitePC",
+    }))
+    .filter(({ species }) => species);
+}
+
+// ==========================================================
+// > INITIALISATION
+// ==========================================================
+
+async function initCT() {
+  initSearch();
+  initTeamButton();
+
+  await Promise.all([
+    initTypeFilter(),
+    initInventoryFilter(),
+    loadCT(),
+    loadCurrentMember(),
+    loadPokemon(),
+  ]);
+
+  buildCompatibilityCache();
+
+  await initTeamFilter();
+
+  renderAll();
+}
+
+// = Rafraîchissement général
+
+function renderAll() {
+  renderInventory();
+  renderTeam();
+  renderBoxPokemon();
+  renderCT();
+  updateTeamButton();
 }
 
 // ==========================================================
@@ -151,103 +266,46 @@ function initSearch() {
 }
 
 // ==========================================================
-// > INITIALISATION
+// > CHARGEMENT DES DONNÉES
 // ==========================================================
 
-async function initCT() {
-  initSearch();
-  initTeamButton();
+// = CT
 
-  await Promise.all([initTypeFilter(), initInventoryFilter(), loadCT(), loadCurrentMember(), loadPokemon()]);
+async function loadCT() {
+  try {
+    ctList = await fetchJSON(CT.url);
+    loaded.ct = true;
 
-  // = Calcul des compatibilités
+    console.log("[CT] CT chargées :", ctList.length);
+  } catch (error) {
+    console.error("[CT] Erreur de récupération des CT :", error);
 
-  buildCompatibilityCache();
-
-  // = Initialisation du filtre équipe après chargement des données
-
-  await initTeamFilter();
-
-  renderCT();
-}
-
-// ==========================================================
-// > TEAM : BOUTON D'AFFICHAGE
-// ==========================================================
-
-function initTeamButton() {
-  const button = document.querySelector(CT.teamButton);
-
-  if (!button) return;
-
-  button.addEventListener("click", () => {
-    // = Vérification des données
-
-    if (!ctLoaded || !pokemonLoaded || !memberLoaded) return;
-
-    // = Calcul des compatibilités
-
-    if (!compatibilityCacheBuilt) {
-      buildCompatibilityCache();
+    if (CT.container) {
+      CT.container.innerHTML = `
+        <p class="ct-error">Impossible de charger les CT.</p>
+      `;
     }
-
-    // = Activation / désactivation
-
-    setTeamButtonState(!teamCTLoaded);
-
-    // = Affichage
-
-    renderCT();
-  });
-
-  updateTeamButton();
-}
-
-// = État du bouton
-
-function updateTeamButton() {
-  const button = document.querySelector(CT.teamButton);
-
-  if (!button) return;
-
-  button.disabled = !(ctLoaded && pokemonLoaded && memberLoaded);
-}
-
-// = Synchronisation du bouton
-
-function setTeamButtonState(value) {
-  teamCTLoaded = value;
-
-  const button = document.querySelector(CT.teamButton);
-
-  if (button) {
-    button.setAttribute("aria-pressed", String(teamCTLoaded));
+  } finally {
+    updateTeamButton();
   }
 }
 
-// ==========================================================
-// > RÉCUPÉRATION DES POKÉMON
-// ==========================================================
+// = Espèces Pokémon
 
 async function loadPokemon() {
   try {
-    const response = await fetch(POKEMON.url);
+    pokemonList = await fetchJSON(POKEMON.url);
 
-    if (!response.ok) {
-      throw new Error(`Erreur HTTP ${response.status}`);
-    }
+    speciesById = new Map(
+      pokemonList.map((species) => [
+        normalizeDexId(species.id),
+        species,
+      ]),
+    );
 
-    pokemonList = await response.json();
+    loaded.pokemon = true;
 
-    // = Indexation des espèces par numéro Pokédex
-
-    speciesById = new Map(pokemonList.map((species) => [normalizeDexId(species.id), species]));
-
-    pokemonLoaded = true;
-
-    renderTeam();
-    renderBoxPokemon();
-    renderCT();
+    console.log("[CT] Espèces chargées :", pokemonList.length);
   } catch (error) {
     console.error("[CT] Erreur de récupération des Pokémon :", error);
   } finally {
@@ -255,26 +313,37 @@ async function loadPokemon() {
   }
 }
 
-// ==========================================================
-// > MEMBRE CONNECTÉ
-// ==========================================================
+// = Membre connecté
 
 async function loadCurrentMember() {
   try {
+    // Récupération de l'utilisateur depuis la page d'accueil
+
+    currentForumUser = await getHomepageUserData();
+
+    console.log("[CT] Utilisateur Forumactif :", currentForumUser);
+
+    if (Number(currentForumUser.session_logged_in) !== 1) {
+      throw new Error("Aucun membre connecté.");
+    }
+
+    // Chargement de la liste des membres
+
     await MemberData.load();
 
-    currentMember = MemberData.getCurrent();
+    // Recherche du membre correspondant à son identifiant
 
-    console.log("[CT] Membre connecté :", currentMember);
+    currentMember = MemberData.getById(currentForumUser.user_id);
 
-    memberLoaded = true;
+    if (!currentMember) {
+      throw new Error(
+        `Membre ${currentForumUser.user_id} introuvable dans MemberData.`,
+      );
+    }
 
-    renderInventory();
-    renderTeam();
-    renderBoxPokemon();
-    renderCT();
+    loaded.member = true;
 
-    return currentMember;
+    console.log("[CT] Membre chargé :", currentMember);
   } catch (error) {
     console.error("[CT] Erreur de récupération du membre :", error);
   } finally {
@@ -283,22 +352,32 @@ async function loadCurrentMember() {
 }
 
 // ==========================================================
-// > FILTRE PAR TYPE
+// > FILTRES
 // ==========================================================
 
-async function initTypeFilter() {
-  await Dropdown.create({
-    container: CT.typeFilter,
+// = Création d'un dropdown
 
+async function createFilter(config) {
+  return Dropdown.create({
     type: "filter",
+    search: false,
+    valueKey: "id",
+    labelKey: "nom",
+    ...config,
+  });
+}
+
+// = Filtre par type
+
+async function initTypeFilter() {
+  await createFilter({
+    container: CT.typeFilter,
     mode: "multiple",
     search: true,
 
     placeholder: "Tous les types",
     searchPlaceholder: "Rechercher un type...",
 
-    valueKey: "id",
-    labelKey: "nom",
     searchKeys: ["nom"],
 
     options: CT.types.map((type) => ({
@@ -313,21 +392,14 @@ async function initTypeFilter() {
   });
 }
 
-// ==========================================================
-// > FILTRE PAR POSSESSION
-// ==========================================================
+// = Filtre par possession
 
 async function initInventoryFilter() {
-  await Dropdown.create({
+  await createFilter({
     container: CT.inventoryFilter,
-
-    type: "filter",
     mode: "single",
-    search: false,
 
     placeholder: "Rechercher une CT",
-    valueKey: "id",
-    labelKey: "nom",
 
     options: [
       { id: "all", nom: "Toutes les CT" },
@@ -342,134 +414,105 @@ async function initInventoryFilter() {
   });
 }
 
-// ==========================================================
-// > FILTRE PAR ÉQUIPE ET BOÎTE PC
-// ==========================================================
+// = Filtre par équipe et boîte PC
 
 async function initTeamFilter() {
   const team = getTeamPokemon();
   const box = getBoxPokemon();
 
-  await Dropdown.create({
-    container: CT.teamFilter,
+  const pokemonOptions = [...team, ...box].map((pokemon) => {
+    const species = getSpecies(pokemon);
 
-    type: "filter",
+    return {
+      id: pokemon.u,
+      nom: `${pokemon.n || "Sans surnom"} (${species?.nom ?? "Espèce inconnue"})`,
+    };
+  });
+
+  await createFilter({
+    container: CT.teamFilter,
     mode: "single",
-    search: false,
 
     placeholder: "Rechercher un Pokémon...",
 
-    valueKey: "id",
-    labelKey: "nom",
-
     options: [
-      // = Options générales
-
       { id: "all", nom: "Réinitialiser" },
       { id: "team", nom: "Toute l'équipe" },
       { id: "box", nom: "Toute la boîte PC" },
       { id: "teambox", nom: "Toute l'équipe + boîte PC" },
-
-      // = Pokémon de l'équipe
-
-      ...team.map((pokemon) => {
-        const species = getSpecies(pokemon);
-
-        return {
-          id: pokemon.u,
-          nom: `${pokemon.n || "Sans surnom"} (${species?.nom ?? "Espèce inconnue"})`,
-        };
-      }),
-
-      // = Pokémon de la boîte PC
-
-      ...box.map((pokemon) => {
-        const species = getSpecies(pokemon);
-
-        return {
-          id: pokemon.u,
-          nom: `${pokemon.n || "Sans surnom"} (${species?.nom ?? "Espèce inconnue"})`,
-        };
-      }),
+      ...pokemonOptions,
     ],
 
     onChange(value) {
       selectedTeamPokemon = value;
 
-      // = Calcul des compatibilités
-
       if (!compatibilityCacheBuilt) {
         buildCompatibilityCache();
       }
 
-      // = Activation automatique du bouton
-
       setTeamButtonState(value !== "all");
-
-      // = Affichage
-
       renderCT();
     },
   });
 }
 
 // ==========================================================
-// > RÉCUPÉRATION DES CT
+// > BOUTON D'AFFICHAGE DES COMPATIBILITÉS
 // ==========================================================
 
-async function loadCT() {
-  try {
-    const response = await fetch(CT.url);
+function initTeamButton() {
+  const button = document.querySelector(CT.teamButton);
 
-    if (!response.ok) {
-      throw new Error(`Erreur HTTP ${response.status}`);
+  if (!button) return;
+
+  button.addEventListener("click", () => {
+    if (!loaded.ct || !loaded.pokemon || !loaded.member) return;
+
+    if (!compatibilityCacheBuilt) {
+      buildCompatibilityCache();
     }
 
-    ctList = await response.json();
-
-    ctLoaded = true;
-
-    renderInventory();
+    setTeamButtonState(!teamCTLoaded);
     renderCT();
-  } catch (error) {
-    console.error("[CT] Erreur de récupération :", error);
+  });
 
-    if (CT.container) {
-      CT.container.innerHTML = `
-        <p class="ct-error">
-          Impossible de charger les CT.
-        </p>
-      `;
-    }
-  } finally {
-    updateTeamButton();
+  updateTeamButton();
+}
+
+// = Mise à jour de l'état du bouton
+
+function updateTeamButton() {
+  const button = document.querySelector(CT.teamButton);
+
+  if (!button) return;
+
+  button.disabled = !(
+    loaded.ct &&
+    loaded.pokemon &&
+    loaded.member
+  );
+}
+
+// = Synchronisation de l'état
+
+function setTeamButtonState(value) {
+  teamCTLoaded = value;
+
+  const button = document.querySelector(CT.teamButton);
+
+  if (button) {
+    button.setAttribute("aria-pressed", String(value));
   }
 }
 
 // ==========================================================
-// > TEAM : CALCUL DES COMPATIBILITÉS
+// > CALCUL DES COMPATIBILITÉS
 // ==========================================================
 
 function buildCompatibilityCache() {
-  // = Vérification des données
+  if (!loaded.ct || !loaded.pokemon || !loaded.member) return;
 
-  if (!ctLoaded || !pokemonLoaded || !memberLoaded) return;
-  // = Préparation de l'équipe et de la boîte PC
-
-  const teamPokemon = getTeamPokemon();
-  const teamIds = new Set(teamPokemon.map((pokemon) => String(pokemon.u)));
-
-  const allPokemon = [...teamPokemon, ...getBoxPokemon()];
-
-  const pokemonWithSpecies = allPokemon
-    .map((pokemon) => ({
-      pokemon,
-      species: getSpecies(pokemon),
-      location: teamIds.has(String(pokemon.u)) ? "team" : "boitePC",
-    }))
-    .filter(({ species }) => species);
-
-  // = Calcul des compatibilités pour chaque CT
+  const pokemonWithLocation = getAllPokemonWithLocation();
 
   compatibilityCache = new Map();
 
@@ -481,41 +524,70 @@ function buildCompatibilityCache() {
         .filter(Boolean),
     );
 
-    const compatiblePokemon = pokemonWithSpecies.filter(({ species }) => compatibleSpecies.has(normalize(species.nom)));
+    const compatiblePokemon = pokemonWithLocation.filter(
+      ({ species }) => compatibleSpecies.has(normalize(species.nom)),
+    );
 
     compatibilityCache.set(ct, compatiblePokemon);
   });
 
   compatibilityCacheBuilt = true;
 
-  console.log(`[CT] Compatibilités calculées : ${compatibilityCache.size} CT`);
+  console.log(
+    `[CT] Compatibilités calculées : ${compatibilityCache.size} CT`,
+  );
+}
+
+// = Pokémon compatibles avec une CT
+
+function getCompatiblePokemon(ct, location = null) {
+  const compatiblePokemon = compatibilityCache.get(ct) ?? [];
+
+  if (!location) return compatiblePokemon;
+
+  return compatiblePokemon.filter(
+    ({ location: pokemonLocation }) => pokemonLocation === location,
+  );
 }
 
 // ==========================================================
-// > FILTRAGE
+// > FILTRAGE DES CT
 // ==========================================================
 
 function getFilteredCT(inventoryNames) {
-  // = Compatibilités nécessaires au filtre équipe
-
-  if (ctLoaded && pokemonLoaded && memberLoaded && !compatibilityCacheBuilt) {
+  if (
+    loaded.ct &&
+    loaded.pokemon &&
+    loaded.member &&
+    !compatibilityCacheBuilt
+  ) {
     buildCompatibilityCache();
   }
 
   return ctList.filter((ct) => {
     // = Type
 
-    const matchesType = !selectedTypes.length || selectedTypes.some((type) => normalize(ct.type) === normalize(type));
+    const matchesType =
+      !selectedTypes.length ||
+      selectedTypes.some(
+        (type) => normalize(ct.type) === normalize(type),
+      );
 
     // = Recherche
 
-    const matchesSearch = !searchQuery || [ct.nom, ct["nom en"]].some((name) => normalize(name).includes(searchQuery));
+    const matchesSearch =
+      !searchQuery ||
+      [ct.nom, ct["nom en"]].some(
+        (name) => normalize(name).includes(searchQuery),
+      );
 
-    // = Inventaire
+    // = Possession
 
     const hasCT = inventoryNames.has(normalize(ct.nom));
 
-    const matchesInventory = selectedInventory === "all" || String(hasCT) === selectedInventory;
+    const matchesInventory =
+      selectedInventory === "all" ||
+      String(hasCT) === selectedInventory;
 
     // = Équipe et boîte PC
 
@@ -524,20 +596,33 @@ function getFilteredCT(inventoryNames) {
     let matchesTeam = true;
 
     if (selectedTeamPokemon === "team") {
-      matchesTeam = compatiblePokemon.some(({ location }) => location === "team");
+      matchesTeam = compatiblePokemon.some(
+        ({ location }) => location === "team",
+      );
     } else if (selectedTeamPokemon === "box") {
-      matchesTeam = compatiblePokemon.some(({ location }) => location === "boitePC");
+      matchesTeam = compatiblePokemon.some(
+        ({ location }) => location === "boitePC",
+      );
     } else if (selectedTeamPokemon === "teambox") {
       matchesTeam = compatiblePokemon.length > 0;
     } else if (selectedTeamPokemon !== "all") {
-      matchesTeam = compatiblePokemon.some(({ pokemon }) => String(pokemon.u) === String(selectedTeamPokemon));
+      matchesTeam = compatiblePokemon.some(
+        ({ pokemon }) =>
+          String(pokemon.u) === String(selectedTeamPokemon),
+      );
     }
 
-    return matchesType && matchesSearch && matchesInventory && matchesTeam;
+    return (
+      matchesType &&
+      matchesSearch &&
+      matchesInventory &&
+      matchesTeam
+    );
   });
 }
+
 // ==========================================================
-// > INVENTAIRE
+// > AFFICHAGE DE L'INVENTAIRE
 // ==========================================================
 
 function renderInventory() {
@@ -547,13 +632,13 @@ function renderInventory() {
 
   const items = currentMember?.inventaire?.items ?? {};
 
-  // = CT disponibles dans l'inventaire
+  const ctNames = new Set(
+    ctList.map((ct) => normalize(ct.nom)),
+  );
 
-  const ctNames = new Set(ctList.map((ct) => normalize(ct.nom)));
-
-  const availableCT = Object.entries(items).filter(([name]) => ctNames.has(normalize(name)));
-
-  // = Affichage
+  const availableCT = Object.entries(items).filter(
+    ([name]) => ctNames.has(normalize(name)),
+  );
 
   container.innerHTML = availableCT
     .map(
@@ -568,101 +653,110 @@ function renderInventory() {
 }
 
 // ==========================================================
-// > AFFICHAGE DE L'ÉQUIPE
+// > AFFICHAGE DES POKÉMON
 // ==========================================================
+
+// = Génération d'un Pokémon
+
+function createPokemonHTML(pokemon, classPrefix) {
+  const species = getSpecies(pokemon);
+
+  return `
+    <div
+      class="${classPrefix}-item"
+      data-pokemon-id="${escapeHTML(pokemon.u)}"
+    >
+      <img
+        src="${escapeHTML(species?.sprite ?? "")}"
+        alt="${escapeHTML(species?.nom ?? "Pokémon")}"
+        loading="lazy"
+      >
+
+      <span class="${classPrefix}-name">
+        ${escapeHTML(pokemon.n || "Sans surnom")}
+      </span>
+
+      <span class="${classPrefix}-pkmn">
+        (${escapeHTML(species?.nom ?? "Espèce inconnue")})
+      </span>
+
+      <span class="${classPrefix}-rang">
+        rang ${escapeHTML(pokemon.r ?? "")}
+      </span>
+    </div>
+  `;
+}
+
+// = Affichage d'une liste de Pokémon
+
+function renderPokemonList(selector, pokemonList, classPrefix, emptyMessage) {
+  const container = document.querySelector(selector);
+
+  if (!container) return;
+
+  if (!pokemonList.length) {
+    container.innerHTML = `<p>${emptyMessage}</p>`;
+    return;
+  }
+
+  container.innerHTML = pokemonList
+    .map((pokemon) => createPokemonHTML(pokemon, classPrefix))
+    .join("");
+}
+
+// = Équipe
 
 function renderTeam() {
-  const container = document.querySelector(".equipe-pokemon-list");
-
-  if (!container) return;
-
-  const team = getTeamPokemon();
-
-  if (!team.length) {
-    container.innerHTML = `<p>Aucune équipe disponible.</p>`;
-    return;
-  }
-
-  // = Affichage
-
-  container.innerHTML = team
-    .map((pokemon) => {
-      const species = getSpecies(pokemon);
-
-      return `
-        <div
-          class="equipe-pokemon-item"
-          data-pokemon-id="${escapeHTML(pokemon.u)}"
-        >
-
-          <img
-            src="${escapeHTML(species?.sprite ?? "")}"
-            alt="${escapeHTML(species?.nom ?? "Pokémon")}"
-            loading="lazy"
-          >
-
-          <span class="equipe-pokemon-name">${escapeHTML(pokemon.n || "Sans surnom")}</span>
-          <span class="equipe-pokemon-pkmn">(${escapeHTML(species?.nom ?? "Espèce inconnue")})</span>
-          <span class="equipe-pokemon-rang">rang ${escapeHTML(pokemon.r ?? "")}</span>
-
-        </div>
-      `;
-    })
-    .join("");
+  renderPokemonList(
+    ".equipe-pokemon-list",
+    getTeamPokemon(),
+    "equipe-pokemon",
+    "Aucune équipe disponible.",
+  );
 }
 
-// ==========================================================
-// > AFFICHAGE DE LA BOÎTE PC
-// ==========================================================
+// = Boîte PC
 
 function renderBoxPokemon() {
-  const container = document.querySelector(".boite-pc-list");
-
-  if (!container) return;
-
-  const box = getBoxPokemon();
-
-  if (!box.length) {
-    container.innerHTML = `<p>Aucun Pokémon dans la boîte PC.</p>`;
-    return;
-  }
-
-  // = Affichage
-
-  container.innerHTML = box
-    .map((pokemon) => {
-      const species = getSpecies(pokemon);
-
-      return `
-        <div
-          class="boite-pc-item"
-          data-pokemon-id="${escapeHTML(pokemon.u)}"
-        >
-
-          <img
-            src="${escapeHTML(species?.sprite ?? "")}"
-            alt="${escapeHTML(species?.nom ?? "Pokémon")}"
-            loading="lazy"
-          >
-
-          <span class="boite-pc-name">${escapeHTML(pokemon.n || "Sans surnom")}</span>
-          <span class="boite-pc-pkmn">(${escapeHTML(species?.nom ?? "Espèce inconnue")})</span>
-          <span class="boite-pc-rang">rang ${escapeHTML(pokemon.r ?? "")}</span>
-
-        </div>
-      `;
-    })
-    .join("");
+  renderPokemonList(
+    ".boite-pc-list",
+    getBoxPokemon(),
+    "boite-pc",
+    "Aucun Pokémon dans la boîte PC.",
+  );
 }
 
 // ==========================================================
-// > TEAM : POKÉMON AFFICHÉS PAR CT
+// > AFFICHAGE DES POKÉMON COMPATIBLES PAR CT
 // ==========================================================
 
-function getUniqueCompatiblePokemon(ct, location) {
-  const compatiblePokemon = compatibilityCache.get(ct) ?? [];
+function renderCompatiblePokemon(ct, location, title) {
+  const pokemon = getCompatiblePokemon(ct, location);
 
-  return compatiblePokemon.filter(({ location: pokemonLocation }) => pokemonLocation === location);
+  if (!pokemon.length) return "";
+
+  return `
+    <div class="ct-item-${location === "team" ? "team" : "boitePC"}">
+      <div class="ct-item-titre">${title}</div>
+
+      <div class="ct-item-content">
+        ${pokemon
+          .map(
+            ({ pokemon, species }) => `
+              <img
+                class="${hasLearnedCT(pokemon, ct) ? "ct-apprise" : ""}"
+                src="${escapeHTML(species.sprite ?? "")}"
+                alt="${escapeHTML(species.nom)}"
+                title="${escapeHTML(pokemon.n || species.nom)}"
+                loading="lazy"
+                data-pokemon-id="${escapeHTML(pokemon.u)}"
+              >
+            `,
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
 }
 
 // ==========================================================
@@ -672,12 +766,7 @@ function getUniqueCompatiblePokemon(ct, location) {
 function renderCT() {
   if (!CT.container) return;
 
-  // = Inventaire
-
   const inventoryNames = getInventoryNames();
-
-  // = Récupération des CT filtrées
-
   const filteredCT = getFilteredCT(inventoryNames);
 
   if (!filteredCT.length) {
@@ -689,19 +778,17 @@ function renderCT() {
     return;
   }
 
-  // = Affichage
-
   CT.container.innerHTML = filteredCT
     .map((ct) => {
-      // > Possession de la CT
-
       const hasCT = inventoryNames.has(normalize(ct.nom));
 
-      // > Pokémon compatibles
+      const teamPokemon = teamCTLoaded
+        ? renderCompatiblePokemon(ct, "team", "Équipe Pokémon")
+        : "";
 
-      const teamPokemon = teamCTLoaded ? getUniqueCompatiblePokemon(ct, "team") : [];
-
-      const boxPokemon = teamCTLoaded ? getUniqueCompatiblePokemon(ct, "boitePC") : [];
+      const boxPokemon = teamCTLoaded
+        ? renderCompatiblePokemon(ct, "boitePC", "Boîte PC")
+        : "";
 
       return `
         <article
@@ -740,70 +827,21 @@ function renderCT() {
             ${escapeHTML(ct.type)}
           </div>
 
-          <div class="ct-item-name">${escapeHTML(ct.nom)}</div>
+          <div class="ct-item-name">
+            ${escapeHTML(ct.nom)}
+          </div>
 
           <div class="ct-item-description">
             ${escapeHTML(ct.description)}
-          
+          </div>
 
           ${
-            teamPokemon.length || boxPokemon.length
+            teamPokemon || boxPokemon
               ? `
                 <div class="ct-item-pokemon">
-
-                  ${
-                    teamPokemon.length
-                      ? `
-                        <div class="ct-item-team">
-                          <div class="ct-item-titre">Équipe Pokémon</div>
-                          <div class="ct-item-content">
-                            ${teamPokemon
-                              .map(
-                                ({ pokemon, species }) => `
-                                  <img
-                                    class="${hasLearnedCT(pokemon, ct) ? "ct-apprise" : ""}"
-                                    src="${escapeHTML(species.sprite ?? "")}"
-                                    alt="${escapeHTML(species.nom)}"
-                                    title="${escapeHTML(pokemon.n || species.nom)}"
-                                    loading="lazy"
-                                    data-pokemon-id="${escapeHTML(pokemon.u)}"
-                                  >
-                                `,
-                              )
-                              .join("")}
-                          </div>
-                        </div>
-                      `
-                      : ""
-                  }
-
-                  ${
-                    boxPokemon.length
-                      ? `
-                        <div class="ct-item-boitePC">
-                          <div class="ct-item-titre">Boîte PC</div>
-                          <div class="ct-item-content">
-                            ${boxPokemon
-                              .map(
-                                ({ pokemon, species }) => `
-                                  <img
-                                    class="${hasLearnedCT(pokemon, ct) ? "ct-apprise" : ""}"
-                                    src="${escapeHTML(species.sprite ?? "")}"
-                                    alt="${escapeHTML(species.nom)}"
-                                    title="${escapeHTML(pokemon.n || species.nom)}"
-                                    loading="lazy"
-                                    data-pokemon-id="${escapeHTML(pokemon.u)}"
-                                  >
-                                `,
-                              )
-                              .join("")}
-                          </div>
-                        </div>
-                      `
-                      : ""
-                  }
-
-                </div></div>
+                  ${teamPokemon}
+                  ${boxPokemon}
+                </div>
               `
               : ""
           }
