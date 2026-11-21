@@ -1,5 +1,5 @@
-import { Dropdown } from "../components/dropdown/dropdown.js";
-import { MemberData } from "./member-data.js";
+import { Dropdown } from "https://themis-trials.github.io/tools/dropdown/dropdown.js";
+import { MemberData } from "https://themis-trials.github.io/tools/outils/shared/members-data.js";
 
 // ==========================================================
 // THEMIS — CT
