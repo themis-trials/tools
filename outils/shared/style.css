@@ -85,45 +85,37 @@ body.encyclopedie {
   grid-row-gap: 1.5rem;
   grid-template-areas: "nav nav" "header header" "sidebar main";
 }
-
-nav {
+body.encyclopedie nav {
   grid-area: nav;
 }
-
-header {
+body.encyclopedie header {
   grid-area: header;
 }
-
-sidebar {
+body.encyclopedie sidebar {
   grid-area: sidebar;
 }
-
-main {
+body.encyclopedie main {
   grid-area: main;
 }
-
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
+body.encyclopedie h1,
+body.encyclopedie h2,
+body.encyclopedie h3,
+body.encyclopedie h4,
+body.encyclopedie h5,
+body.encyclopedie h6 {
   margin: 0;
   font-weight: 600;
   line-height: 1.2;
 }
-
-p {
+body.encyclopedie p {
   margin: 0;
 }
-
-ul,
-ol {
+body.encyclopedie ul,
+body.encyclopedie ol {
   margin: 0;
   padding: 0;
 }
-
-.type {
+body.encyclopedie .type {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -136,68 +128,67 @@ ol {
   letter-spacing: 0.2px;
   text-transform: uppercase;
 }
-.type_plante {
+body.encyclopedie .type_plante {
   background: #7ac74c;
 }
-.type_poison {
+body.encyclopedie .type_poison {
   background: #a33ea1;
 }
-.type_feu {
+body.encyclopedie .type_feu {
   background: #ee8130;
 }
-.type_vol {
+body.encyclopedie .type_vol {
   background: #a98ff3;
 }
-.type_eau {
+body.encyclopedie .type_eau {
   background: #6390f0;
 }
-.type_insecte {
+body.encyclopedie .type_insecte {
   background: #a6b91a;
 }
-.type_tenebres {
+body.encyclopedie .type_tenebres {
   background: #705746;
 }
-.type_normal {
+body.encyclopedie .type_normal {
   background: #a8a77a;
 }
-.type_electrik {
+body.encyclopedie .type_electrik {
   background: #f7d02c;
 }
-.type_psy {
+body.encyclopedie .type_psy {
   background: #f95587;
 }
-.type_sol {
+body.encyclopedie .type_sol {
   background: #e2bf65;
 }
-.type_glace {
+body.encyclopedie .type_glace {
   background: #96d9d6;
 }
-.type_acier {
+body.encyclopedie .type_acier {
   background: #b7b7ce;
 }
-.type_combat {
+body.encyclopedie .type_combat {
   background: #c22e28;
 }
-.type_roche {
+body.encyclopedie .type_roche {
   background: #b6a136;
 }
-.type_dragon {
+body.encyclopedie .type_dragon {
   background: #6f35fc;
 }
-.type_fee {
+body.encyclopedie .type_fee {
   background: #d685ad;
 }
-.type_spectre {
+body.encyclopedie .type_spectre {
   background: #735797;
 }
-
-.hero {
+body.encyclopedie .hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) min(25%, 350px);
   align-items: stretch;
   gap: 1.5rem;
 }
-.hero__content {
+body.encyclopedie .hero__content {
   position: relative;
   display: flex;
   justify-content: space-between;
@@ -209,13 +200,13 @@ ol {
   padding: 36px 42px;
   justify-content: space-between;
 }
-.hero__content .hero__liens {
+body.encyclopedie .hero__content .hero__liens {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 8px;
 }
-.hero__content .hero__liens a {
+body.encyclopedie .hero__content .hero__liens a {
   color: #fafafa;
   background: rgba(9, 10, 11, 0.5);
   padding: 8px 12px;
@@ -226,27 +217,27 @@ ol {
   font-weight: 600;
   transition: background-color 400ms ease;
 }
-.hero__content .hero__liens a:hover {
+body.encyclopedie .hero__content .hero__liens a:hover {
   background: #72a9c0;
 }
-.hero__subtitle::before {
+body.encyclopedie .hero__subtitle::before {
   font-weight: 800;
   letter-spacing: 0.17em;
   text-transform: uppercase;
   font-size: 11px;
   content: "Themis Trials ✦ Encyclopédie d'Eleftheria";
 }
-.hero__title {
+body.encyclopedie .hero__title {
   line-height: 1.2;
   letter-spacing: -0.1rem;
   font-size: clamp(1.875rem, 4vw, 3rem);
 }
-.hero__description {
+body.encyclopedie .hero__description {
   max-width: 600px;
   margin: 0;
   opacity: 0.92;
 }
-.hero__img {
+body.encyclopedie .hero__img {
   position: relative;
   min-height: 100%;
   overflow: hidden;
@@ -254,7 +245,7 @@ ol {
   background-size: cover;
   background-position: center;
 }
-.hero__img::before {
+body.encyclopedie .hero__img::before {
   position: absolute;
   filter: brightness(50%) saturate(0%) contrast(100%);
   border-radius: inherit;
@@ -264,7 +255,7 @@ ol {
   background-size: cover;
   background-position: center;
 }
-.hero__img::after {
+body.encyclopedie .hero__img::after {
   position: absolute;
   background: #8fbfd1;
   pointer-events: none;
@@ -273,16 +264,13 @@ ol {
   inset: 0;
   mix-blend-mode: hard-light;
 }
-
-body[data-tool=ct] {
+body.encyclopedie body[data-tool=ct] {
   --hero-img: url("https://cdn.donmai.us/sample/aa/01/__revavroom_pokemon_drawn_by_petite_echorizon__sample-aa017aac6b30642150e9cd78f7616212.jpg");
 }
-
-.hero__img {
+body.encyclopedie .hero__img {
   background-image: var(--hero-img);
 }
-
-.navbar {
+body.encyclopedie .navbar {
   position: sticky;
   top: 20px;
   z-index: 1000;
@@ -291,7 +279,7 @@ body[data-tool=ct] {
   border-radius: 9999px;
   border: 1px solid rgba(0, 0, 0, 0.06);
 }
-.navbar__indicator {
+body.encyclopedie .navbar__indicator {
   position: absolute;
   top: 0;
   left: 0;
@@ -301,13 +289,13 @@ body[data-tool=ct] {
   border-radius: 999px;
   transition: transform 800ms ease, width 800ms ease, height 800ms ease, opacity 400ms ease;
 }
-.navbar__indicator--visible {
+body.encyclopedie .navbar__indicator--visible {
   opacity: 1;
 }
-.navbar__indicator--no-transition {
+body.encyclopedie .navbar__indicator--no-transition {
   transition: none;
 }
-.navbar__items {
+body.encyclopedie .navbar__items {
   position: relative;
   display: flex;
   padding: 1rem 1.5rem;
@@ -315,7 +303,7 @@ body[data-tool=ct] {
   justify-content: flex-end;
   gap: 1.5rem;
 }
-.navbar__item {
+body.encyclopedie .navbar__item {
   position: relative;
   z-index: 1;
   display: flex;
@@ -323,23 +311,23 @@ body[data-tool=ct] {
   color: #0a0a0a;
   padding: 12px 24px;
 }
-.navbar__item--main .navbar__description {
+body.encyclopedie .navbar__item--main .navbar__description {
   display: none;
 }
-.navbar__item--dropdown {
+body.encyclopedie .navbar__item--dropdown {
   flex-shrink: 0;
 }
-.navbar__item:hover .navbar__number, .navbar__item--pinned .navbar__number {
+body.encyclopedie .navbar__item:hover .navbar__number, body.encyclopedie .navbar__item--pinned .navbar__number {
   opacity: 1;
   color: #dc7156;
 }
-.navbar__item--open .navbar__trigger {
+body.encyclopedie .navbar__item--open .navbar__trigger {
   background: var(--color-surface-hover);
 }
-.navbar__item--open .navbar__arrow {
+body.encyclopedie .navbar__item--open .navbar__arrow {
   transform: rotate(180deg);
 }
-.navbar__link, .navbar__trigger {
+body.encyclopedie .navbar__link, body.encyclopedie .navbar__trigger {
   position: relative;
   z-index: 1;
   display: flex;
@@ -352,24 +340,24 @@ body[data-tool=ct] {
   gap: 0.75rem;
   font: inherit;
 }
-.navbar__trigger {
+body.encyclopedie .navbar__trigger {
   align-items: baseline;
   white-space: nowrap;
 }
-.navbar__label-wrap {
+body.encyclopedie .navbar__label-wrap {
   position: relative;
   display: inline-grid;
   grid-template-areas: "label";
 }
-.navbar__label, .navbar__label-light {
+body.encyclopedie .navbar__label, body.encyclopedie .navbar__label-light {
   grid-area: label;
   font-weight: 600;
 }
-.navbar__label {
+body.encyclopedie .navbar__label {
   position: relative;
   z-index: 1;
 }
-.navbar__label-light {
+body.encyclopedie .navbar__label-light {
   position: relative;
   z-index: 3;
   pointer-events: none;
@@ -377,7 +365,7 @@ body[data-tool=ct] {
   clip-path: inset(0 100% 0 0);
   will-change: clip-path;
 }
-.navbar__number {
+body.encyclopedie .navbar__number {
   flex-shrink: 0;
   opacity: 0.5;
   font-weight: 700;
@@ -386,7 +374,7 @@ body[data-tool=ct] {
   transition: color 400ms ease, opacity 400ms ease;
   font-variant-numeric: tabular-nums;
 }
-.navbar__list {
+body.encyclopedie .navbar__list {
   display: grid;
   grid-template-columns: repeat(2, minmax(auto, 1fr));
   margin: 0;
@@ -397,10 +385,10 @@ body[data-tool=ct] {
   gap: 1rem;
   list-style: none;
 }
-.navbar :last-child:nth-child(odd) {
+body.encyclopedie .navbar :last-child:nth-child(odd) {
   grid-column: 1/-1;
 }
-.navbar__dropdown {
+body.encyclopedie .navbar__dropdown {
   position: absolute;
   top: calc(100% + 0rem);
   right: 0;
@@ -408,10 +396,10 @@ body[data-tool=ct] {
   min-width: 40rem;
   padding-top: 1.5rem;
 }
-.navbar__dropdown[hidden] {
+body.encyclopedie .navbar__dropdown[hidden] {
   display: none;
 }
-.navbar__dropdown .navbar__link {
+body.encyclopedie .navbar__dropdown .navbar__link {
   display: grid;
   grid-template-areas: "icon label" "icon description";
   grid-template-rows: auto 1fr;
@@ -427,20 +415,20 @@ body[data-tool=ct] {
   grid-column-gap: 1.5rem;
   grid-row-gap: 0px;
 }
-.navbar__dropdown .navbar__link.active {
+body.encyclopedie .navbar__dropdown .navbar__link.active {
   background: #f8d8d0;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
 }
-.navbar__dropdown .navbar__link.active .navbar__icon {
+body.encyclopedie .navbar__dropdown .navbar__link.active .navbar__icon {
   background: #e99580;
 }
-.navbar__dropdown .navbar__link.active:hover {
+body.encyclopedie .navbar__dropdown .navbar__link.active:hover {
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
 }
-.navbar__dropdown .navbar__link.active:hover .navbar__icon {
+body.encyclopedie .navbar__dropdown .navbar__link.active:hover .navbar__icon {
   background: #e99580;
 }
-.navbar__dropdown .navbar__link .navbar__icon {
+body.encyclopedie .navbar__dropdown .navbar__link .navbar__icon {
   grid-area: icon;
   display: inline-flex;
   flex-shrink: 0;
@@ -453,62 +441,57 @@ body[data-tool=ct] {
   transition: background-color 400ms ease;
   justify-content: center;
 }
-.navbar__dropdown .navbar__link .navbar__label {
+body.encyclopedie .navbar__dropdown .navbar__link .navbar__label {
   grid-area: label;
   line-height: 1.5;
   white-space: nowrap;
   font-size: 1rem;
 }
-.navbar__dropdown .navbar__link .navbar__description {
+body.encyclopedie .navbar__dropdown .navbar__link .navbar__description {
   grid-area: description;
   line-height: 1.5;
   white-space: nowrap;
   color: #575757;
   font-size: 0.75rem;
 }
-.navbar__dropdown .navbar__link:hover {
+body.encyclopedie .navbar__dropdown .navbar__link:hover {
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
 }
-.navbar__dropdown .navbar__link:hover .navbar__icon {
+body.encyclopedie .navbar__dropdown .navbar__link:hover .navbar__icon {
   background: #8fbfd1;
 }
-
-.container {
+body.encyclopedie .container {
   background: #fafafa;
   border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 12px;
   padding: 20px 24px;
 }
-
-.contentbg {
+body.encyclopedie .contentbg {
   background: #f5f5f5;
   border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 12px;
   padding: 1.25rem;
 }
-
-.insetbg {
+body.encyclopedie .insetbg {
   background: #ededed;
   border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 12px;
   padding: 1.25rem;
 }
-
-sidebar h2 {
+body.encyclopedie sidebar h2 {
   line-height: 1.2;
   letter-spacing: -0.1rem;
   font-size: 24px;
   margin: 10px 0px;
 }
-sidebar p {
+body.encyclopedie sidebar p {
   color: #575757;
   margin: 10px 0px;
   font-size: 0.875rem;
   line-height: 1.2;
   font-weight: 400;
 }
-
-main h2 {
+body.encyclopedie main h2 {
   display: flex;
   white-space: nowrap;
   gap: 1.25rem;
@@ -517,11 +500,11 @@ main h2 {
   font-size: 3rem;
   letter-spacing: -0.2rem;
 }
-main h2::before {
+body.encyclopedie main h2::before {
   content: "✦";
   color: #dc7156;
 }
-main h2::after {
+body.encyclopedie main h2::after {
   content: "";
   display: block;
   width: 100%;
