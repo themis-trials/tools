@@ -1,3 +1,4 @@
+
 /* ==========================================================
    THEMIS — MEMBER DATA
 ========================================================== */
@@ -14,7 +15,25 @@ export const MemberData = {
   loaded: false,
 
   // ==========================================================
-  // > RÉCUPÉRATION
+  // > UTILISATEUR CONNECTÉ SUR LE FORUM
+  // ==========================================================
+
+  getForumUser() {
+    const user = window._userdata;
+
+    if (!user || Number(user.session_logged_in) !== 1) return null;
+
+    return {
+      id: Number(user.user_id),
+      username: user.username,
+      avatar: user.avatar_link,
+      groupcolor: user.groupcolor,
+      points: Number(user.user_points),
+    };
+  },
+
+  // ==========================================================
+  // > RÉCUPÉRATION DES MEMBRES
   // ==========================================================
 
   async load(force = false) {
@@ -35,7 +54,9 @@ export const MemberData = {
 
       // = Normaliser les données.
 
-      this.members = Array.isArray(json) ? json : (json.members ?? json.posts ?? []);
+      this.members = Array.isArray(json)
+        ? json
+        : (json.members ?? json.posts ?? []);
 
       this.loaded = true;
 
@@ -59,11 +80,17 @@ export const MemberData = {
   // ==========================================================
 
   getCurrent() {
-    const user = window._userdata;
+    const user = this.getForumUser();
 
     if (!user) return null;
 
-    return this.members.find((member) => Number(member.user_id) === Number(user.user_id) && member.username?.trim().toLowerCase() === user.username?.trim().toLowerCase()) ?? null;
+    return (
+      this.members.find(
+        (member) =>
+          Number(member.user_id) === user.id &&
+          member.username?.trim().toLowerCase() === user.username?.trim().toLowerCase()
+      ) ?? null
+    );
   },
 
   // ==========================================================
@@ -71,7 +98,11 @@ export const MemberData = {
   // ==========================================================
 
   getById(id) {
-    return this.members.find((member) => Number(member.user_id) === Number(id)) ?? null;
+    return (
+      this.members.find(
+        (member) => Number(member.user_id) === Number(id)
+      ) ?? null
+    );
   },
 
   // ==========================================================
@@ -79,7 +110,12 @@ export const MemberData = {
   // ==========================================================
 
   getByUsername(username) {
-    return this.members.find((member) => member.username?.trim().toLowerCase() === username?.trim().toLowerCase()) ?? null;
+    return (
+      this.members.find(
+        (member) =>
+          member.username?.trim().toLowerCase() === username?.trim().toLowerCase()
+      ) ?? null
+    );
   },
 
   // ==========================================================
