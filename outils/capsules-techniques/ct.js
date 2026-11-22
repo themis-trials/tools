@@ -35,7 +35,7 @@ const POKEMON = {
 let ctList = [];
 let pokemonList = [];
 let speciesById = new Map();
-
+let showEnglishNames = false;
 let currentMember = null;
 let currentForumUser = null;
 
@@ -224,6 +224,7 @@ function getAllPokemonWithLocation() {
 async function initCT() {
   initSearch();
   initTeamButton();
+  initLanguageButton();
 
   await Promise.all([
     initTypeFilter(),
@@ -760,6 +761,28 @@ function renderCompatiblePokemon(ct, location, title) {
 }
 
 // ==========================================================
+// > AFFICHAGE DES NOMS ANGLAIS
+// ==========================================================
+
+function initLanguageButton() {
+  const button = document.querySelector("#ct-language-toggle");
+
+  if (!button) return;
+
+  button.addEventListener("click", () => {
+    showEnglishNames = !showEnglishNames;
+
+    button.setAttribute("aria-pressed", String(showEnglishNames));
+
+    button.textContent = showEnglishNames
+      ? "Masquer les noms anglais"
+      : "Afficher les noms anglais";
+
+    renderCT();
+  });
+}
+
+// ==========================================================
 // > AFFICHAGE DES CT
 // ==========================================================
 
@@ -827,13 +850,17 @@ function renderCT() {
             ${escapeHTML(ct.type)}
           </div>
 
-          <div class="ct-item-name">
-            ${escapeHTML(ct.nom)}
-          </div>
+          <div class="ct-item-name">${escapeHTML(ct.nom)}
+          ${
+              showEnglishNames && ct["nom en"]
+                ? `<span class="ct-item-name-en">${escapeHTML(ct["nom en"])}</span>`
+                : ""
+            }
+        </div>
 
           <div class="ct-item-description">
             ${escapeHTML(ct.description)}
-          </div>
+          
 
           ${
             teamPokemon || boxPokemon
@@ -846,7 +873,7 @@ function renderCT() {
               : ""
           }
 
-        </article>
+        </div></article>
       `;
     })
     .join("");
